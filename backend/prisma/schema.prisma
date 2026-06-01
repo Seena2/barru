@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../src/generated/prisma"
+ }
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Gender{
+  MALE
+  FEMALE
+}
+
+enum Role{
+  BASIC
+  AUTHOR 
+  REVIEWER
+  EDITOR
+  ADMIN
+}
+
+enum SubmittedFor{
+  PROCEEDINGS
+  JOURNAL 
+}
+
+enum JournalType{
+  ORIGINAL
+  REVIEW
+  SHORT
+}
+
+enum SubmissionStatus{
+  PENDING
+  REVIEWING
+  REJECTED
+  ACCEPTED
+  COMPLETED
+  PUBLISHED
+}
+
+model User{
+  id String @id @default(uuid())
+  name String
+  email String @unique
+  password String
+ 
+  // Relations
+  profile Profile? //1-1 relation: user can only have one profile
+  reviews Review[]// 1-n : user can review multiple articles
+  articlesAuthored Article[] @relation("ArticleAuthor")//one-to-many: user can have multiple articles
+  articlesCoAuthored Article[] @relation("ArticleCoAuthors")//one-to-many: user can co-author multiple articles
+
+  createdAt DateTime @default(now())
+
+  @@unique([name,email]) //two users can't have the same name and email
+  @@index([email])
+}
+
+model Profile{
+   id String @id @default(uuid())
+   userId String @unique
+   firstName String
+   middleName String
+   lastName String
+   birthDate DateTime
+   gender Gender
+   isMarried Boolean
+   nationality String
+   profileImage String?
+   bio String?
+   emails Json //object data type
+   pobox String
+   telephone Json
+   institution String?
+   city String
+   country String
+   isMember Boolean
+   role Role @default(BASIC)
+
+  //  Relations
+  user User @relation(fields: [userId],references: [id], onDelete:Cascade)
+     
+   createdAt DateTime @default(now())
+   updatededAt DateTime @updatedAt //automatically update date every time a record is modified
+}
+
+
+model Article{
+  id String @id @default(uuid())
+  title String
+  abstract String?
+  fileUrl String
+  fileType String
+  articleType Json
+  pages Int?
+  submitedFor SubmittedFor
+  journalType JournalType?
+  status SubmissionStatus @default(PENDING)
+  notes Json
+  publishedDate DateTime?
+ 
+  // Relations
+  authorId String
+  author    User     @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  // Multiple authors (co-authors) relation
+  coAuthors   User[]   @relation("ArticleCoAuthors")
+  // Reviewer
+  reviewers Review[] @relation("ArticleReviewers")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([title,authorId, fileUrl]) //two articles can't have the same title, author
+}
+
+model Review{
+  id String @id @default(uuid())
+  reviewerId String
+  articleId String
+  comments Json
+  
+  // Relations
+  reviewer User @relation(fields: [reviewerId],references: [id], onDelete: Cascade)
+  article Article @relation("ArticleReviewers",fields: [articleId],references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt //automatically update date every time a record is modified
+
+  @@unique([reviewerId,articleId]) //two articles can't have the same article and reviwer
+}
