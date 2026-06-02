@@ -9,16 +9,18 @@
 import express from "express";
 import cors from 'cors';
 import  {config} from 'dotenv';
-import  {prisma,connectDB, disconnectDB} from './config/prisma.ts'
+import { connectDB, disconnectDB } from "./config/prisma.ts";
 // Import routes
-import authRoutes from './routes/authRoutes.ts'
-import articleRoutes from './routes/articleRoutes.ts'
-import editorRoutes from './routes/editorRoutes.ts'
+import authRoutes from "./routes/authRoutes.ts";
+import userRoutes from "./routes/userRoutes.ts";
+import articleRoutes from "./routes/articleRoutes.ts";
+import editorRoutes from "./routes/editorRoutes.ts";
+import reviewerRoutes from "./routes/editorRoutes.ts";
 
 const PORT = process.env.PORT || 5000;
 
 config(); //initializes the dotenv config to access environmenal variables
-connectDB();//connect to the DB
+connectDB(); //connect to the DB
 
 //init express app
 const app = express();
@@ -26,8 +28,8 @@ const app = express();
 //Middlewares
 app.use(cors()); // Critical for allowing frontend requests
 // Body parsing middlewares
-app.use(express.json()); 
-app.use(express.urlencoded({extended:true}));
+app.use(express.json()); //Json body parser for raw json data
+app.use(express.urlencoded({ extended: true })); //parse rich, nested objects and arrays from your HTML forms
 app.use(express.static("dist"));
 
 // API Routes
@@ -38,19 +40,23 @@ app.use(express.static("dist"));
 // Auth
 // http://localhost:5001/auth/register
 // http://localhost:5001/auth/login
-app.use('/auth',authRoutes)
+app.use("/auth", authRoutes);
 
 // User routes
 // app.get("/api/users", (req, res) => {
-//   res.status(200).send(usersList);
+//   res.status(200).send(users);
 // });
-
+app.use("/users", userRoutes);
 // Article
 // http://localhost:5001/article/create
-app.use('/articles', articleRoutes)
-
+app.use("/articles", articleRoutes);
 // Editor routes
-app.use('/editor', editorRoutes)
+app.use("/editor", editorRoutes);
+// Reviewer routes
+app.use("/reviewer", reviewerRoutes);
+
+// Admin routes
+// app.use("/admin", adminRoutes);
 
 
 //Listen for request

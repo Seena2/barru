@@ -9,37 +9,59 @@ import generateToken from '../utils/generateToken.ts';
 @access: Public
 */
 const register = async(req:Request,res:Response)=>{
-     const {name,email,password}= req.body;
-    //  Validate user data
-    if(!name || !email || !password){
-        return res.status(400).json({error:"Please add all fields"});
-    }
-    //  Check if user already exists
-    const userExists = await prisma.user.findUnique({where:{email:email}});
-    if(userExists){
-        return res.status(400).json({error:"User with this email already exists."})
-    }
-    try {
-       // Hash password
-        const salt= await bcrypt.genSalt(10); //generate salt
-        const hashedPassword = await bcrypt.hash(password,salt)
-        //create the user
-        const newUser= await prisma.user.create({
-            data:{name,email,password:hashedPassword}
-        });
-        // Generate JWT token
-        const token= generateToken(newUser.id, res);
-        // return user data along access token
-        res.status(400).json({
-            status: 'success',
-            data:{ user:{id:newUser.id, name:name, email:email}},
-            token
-        });  
-    } catch (error) {
-        console.error("error registering user",error)
-        res.status(400);
-        throw new Error('Invalid user data')
-    }
+  const { name, email, password } = req.body;
+  //   if you want to include profile data during registration, you can extend the request body to include profile fields and then create the user and profile together in a single transation
+  //   const { name, email, password,firstName, middleName, lastName, birthDate, gender, isMarried,  nationality,
+  //  profileImage,  bio, emails,  pobox, telephone,  institution, city, country, isMember, role, } = req.body;
+
+  //  Validate user data
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "Please add all fields" });
+  }
+  //  Check if user already exists
+  const userExists = await prisma.user.findUnique({ where: { email: email } });
+  if (userExists) {
+    return res
+      .status(400)
+      .json({ error: "User with this email already exists." });
+  }
+  try {
+    // Hash password
+    const salt = await bcrypt.genSalt(10); //generate salt
+    const hashedPassword = await bcrypt.hash(password, salt);
+    //create the user with out profile data
+    const newUser = await prisma.user.create({
+      data: { name, email, password: hashedPassword },
+    });
+    //create the user with  profile data: Use the create method to build both the user and their related profile at the same time:
+    /*
+     const newUser = await prisma.user.create({
+      data: {
+        name: name
+        email: email,
+        password: hashedPassword,
+        profile: {
+          create: {
+            name, email, password,firstName, middleName, lastName, birthDate, gender, isMarried,  nationality,
+            profileImage,  bio, emails,  pobox, telephone,  institution, city, country, isMember, role,
+          },
+        },
+      },
+    });
+    */
+    // Generate JWT token
+    const token = generateToken(newUser.id, res);
+    // return user data along access token
+    res.status(400).json({
+      status: "success",
+      data: { user: { id: newUser.id, name: name, email: email } },
+      token,
+    });
+  } catch (error) {
+    console.error("error registering user", error);
+    res.status(400);
+    throw new Error("Invalid user data");
+  }
 }
 
 /*
