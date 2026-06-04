@@ -46,9 +46,9 @@ app.use("/auth", authRoutes);
 // app.get("/api/users", (req, res) => {
 //   res.status(200).send(users);
 // });
-app.use("/users", userRoutes);
+app.use("/users", userRoutes);// base route for user profile
 // Article
-// http://localhost:5001/article/create
+// http://localhost:5001/articles/
 app.use("/articles", articleRoutes);
 // Editor routes
 app.use("/editor", editorRoutes);

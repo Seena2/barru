@@ -75,8 +75,8 @@ model Profile{
    nationality String
    profileImage String?
    bio String?
-   emails Json //object data type
-   pobox String
+   emails Json? //object data type
+   pobox String?
    telephone Json
    institution String?
    city String
@@ -103,7 +103,7 @@ model Article{
   submitedFor SubmittedFor
   journalType JournalType?
   status SubmissionStatus @default(PENDING)
-  notes Json
+  notes Json?
   publishedDate DateTime?
  
   // Relations

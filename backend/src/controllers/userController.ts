@@ -21,80 +21,38 @@ import { prisma } from "../config/prisma.ts";
 */
 /*
 @desc: set user profile
-@route: POST /users/<userId>/profile
+@route: POST /users/
 @access: Private
 */
 const setProfile = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  const {
-    firstName,
-    middleName,
-    lastName,
-    birthDate,
-    gender,
-    isMarried,
-    nationality,
-    profileImage,
-    bio,
-    emails,
-    pobox,
-    telephone,
-    institution,
-    city,
-    country,
-    isMember,
-    role,
-  } = req.body;
+  const { firstName, middleName, lastName, birthDate, gender, isMarried, nationality, profileImage,bio,  emails, pobox,
+    telephone, institution,  city, country, isMember, role } = req.body;
   //  Validate required fields
-  if (
-    !firstName ||
-    !lastName ||
-    !birthDate ||
-    !emails ||
-    !pobox ||
-    !telephone ||
-    !institution ||
-    !city ||
-    !country
-  ) {
+  if ( !firstName || !middleName|| !lastName || !birthDate || !gender || !isMarried ||!nationality|| !telephone  || !city || !country ||!isMember ) {
     return res.status(400).json({ message: "Missing required fields" });
   }
+  // check if user exists
+  const user = await prisma.user.findUnique({where:{id:userId}});
+  if(!user){
+    return res.status(404).json({message:"User not found"})
+  }
 
-  //check if user already has a profile
-  const existingProfile = await prisma.profile.findUnique({
-    where: { userId },
-  });
+  //check if user already has a profile, then instead of creating one update the existing
+  const existingProfile = await prisma.profile.findUnique({ where: { userId } });
   if (existingProfile) {
-    return res
-      .status(400)
-      .json({ message: "Profile already exists for this user" });
+    // return res.status(400) .json({ message: "Profile already exists for this user" });
+    updateProfile(req, res);
   }
 
   try {
     //create a profile for that user by connecting it to their userId in the database.
     const profile = await prisma.profile.create({
-      data: {
-        firstName,
-        middleName,
-        lastName,
-        birthDate,
-        gender,
-        isMarried,
-        nationality,
-        profileImage,
-        bio,
-        emails,
-        pobox,
-        telephone,
-        institution,
-        city,
-        country,
-        isMember,
-        role,
+      data: {firstName, middleName, lastName, birthDate, gender, isMarried, nationality, profileImage,bio,  emails, pobox,
+            telephone, institution,  city, country, isMember, role,
         user: { connect: { id: userId } }, //connects the profile to the existing user by their userId, this assumes that the user is already authenticated and we have their userId available from the auth middleware
       },
     });
-
     res.status(201).json(profile);
   } catch (error) {
     res.status(500).json({ message: "Server error while creating profile" });
@@ -103,68 +61,59 @@ const setProfile = async (req: Request, res: Response) => {
 
 /*
 @desc: Get user profile
-@route: GET api/users/userId
+@route: GET /users/:id
 @access: Private
 */
 const getProfile = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from request object to check if use is authenticated
-  // fetch the profile associated with that userId and include their related profile:
-  const userWithProfile = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { profile: true }, // Returns the Profile object or null if no profile exists for this user},
-  });
-  if (!userWithProfile) {
-    return res.status(404).json({ message: "User not found" });
+  const profileId = req.params.id as string; //used the query parameter instead of request body to target specific profile
+ 
+    // check if user is exists
+  const user = await prisma.user.findUnique({where:{id:userId}});
+  if(!user){
+    return res.status(404).json({message:"User not found"})
   }
-  res.status(200).json(userWithProfile);
+  // fetch the user profile associated with that userId and include their related profile:
+  /* const userProfile = await prisma.user.findUnique({
+  //   where: { id: profileId },
+  //   include: { profile: true }, // Returns the Profile object or null if no profile exists for this user,
+  // });
+  or
+  */
+  const userProfile= await prisma.profile.findUnique({where:{id:profileId}})
+  if (!userProfile) {
+    return res.status(404).json({ message: "User profile not found" });
+  }
+  res.status(200).json(userProfile);
 };
 /*
 @desc: Update user profile
-@route: PUT api/users/userId
+@route: PUT /users/:id
 @access: Private
 */
 const updateProfile = async (req: Request, res: Response) => {
-  const userId = req.user?.id; //get userId from request object
-  const {
-    firstName,
-    middleName,
-    lastName,
-    birthDate,
-    gender,
-    isMarried,
-    nationality,
-    profileImage,
-    bio,
-    emails,
-    pobox,
-    telephone,
-    institution,
-    city,
-    country,
-    isMember,
-    role,
-  } = req.body;
+   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
+  const profileId = req.params.id as string; //used the query parameter instead of request body to target specific profile
+   const { firstName, middleName, lastName, birthDate, gender, isMarried, nationality, profileImage,bio,  emails, pobox,
+    telephone, institution,  city, country, isMember, role } = req.body;
   //  Validate required fields
-  if (
-    !firstName ||
-    !lastName ||
-    !birthDate ||
-    !emails ||
-    !pobox ||
-    !telephone ||
-    !institution ||
-    !city ||
-    !country
-  ) {
+  if ( !firstName || !middleName|| !lastName || !birthDate || !gender || !isMarried ||!nationality|| !telephone  || !city || !country ||!isMember ) {
     return res.status(400).json({ message: "Missing required fields" });
   }
-  // check if user exists and has a profile and fetch the profile associated with the userId
-  const userProfile = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { profile: true }, // Returns the Profile object or null if no profile exists for this user},
-  });
-  if (!userProfile) {
-    return res.status(404).json({ message: "User not found" });
+  // check if user exists
+  const user = await prisma.user.findUnique({where:{id:userId}});
+  if(!user){
+    return res.status(404).json({message:"User not found"})
+  }
+  //check if user profile data exists, if not create new using setProfile()
+  const existingProfile = await prisma.profile.findUnique({ where: { id:profileId } });
+  if (!existingProfile) {
+    // return res.status(400) .json({ message: "Profile not found, create new" });
+    setProfile(req, res);
+  }
+  //verify the user is trying to update his own profile, except admin
+  if(existingProfile?.role !=="ADMIN" || userId !==existingProfile?.userId){
+    return res.status(400).json({message:"Unauthorized, you are not allowed to update this profile"})
   }
   try {
     // Update existing user profile using update method
@@ -223,35 +172,57 @@ const updateProfile = async (req: Request, res: Response) => {
 */
     res.status(200).json(updatedProfile);
     //  res.status(200).json(updateUserProfileOrCraateNew);
-  } catch (error) {}
+  } catch (error) {
+     res.status(500).json({ message: "error updating profile" });
+  }
 };
 
 /*
 @desc: Delete user profile
-@route: DELETE api/users/<userId>/profile
+@route: DELETE /users/:id
 @access: Private
 */
 const deleteProfile = async (req: Request, res: Response) => {
-  const userId = req.user?.id;
-  const userProfile = await prisma.profile.findUnique({
-    where: { id: userId },
-  });
-  if (!userProfile) {
-    return res.status(404).json({ error: "User not found" });
+  const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
+  const profileId = req.params.id as string; //used the query parameter instead of request body to target specific profile
+   // check if user exists
+  const user = await prisma.user.findUnique({where:{id:userId}});
+  if(!user){
+    return res.status(404).json({message:"User not found"})
   }
-  await prisma.profile.delete({ where: { id: userId } });
+  //check if user profile data exists,
+  const userProfile = await prisma.profile.findUnique({ where: { id:profileId } });
+  if (!userProfile) {
+    return res.status(400) .json({ message: "Profile not found" });
+  }
+  //verify the user have the right to delte
+  if(userProfile?.role !=="ADMIN" || userId !==userProfile?.userId){
+    return res.status(400).json({message:"Unauthorized, you are not allowed to delete this profile"})
+  }
+  await prisma.profile.delete({ where: { id: profileId } });
   res.status(201).json({ message: "User profile deleleted successfully" });
 };
 
 // ADMIN ROUTES
 /*
-@desc: Get all users
-@route: GET api/users
+@desc: Get all users for admin purpose
+@route: GET /users/
 @access: Private
 */
 const getAllUsers = async (req: Request, res: Response) => {
-  const users = await prisma.user.findMany();
+  const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
+  // check if user exists
+  const user = await prisma.user.findUnique({where:{id:userId},include:{profile:true}});
+  if(!user){
+    return res.status(404).json({message:"User not found"})
+  }
+  //verify the user have the right to view user profiles
+  if(user.profile?.role !=="ADMIN"){
+    return res.status(400).json({message:"Unauthorized, you are not allowed to view users data"})
+  }
+ const users= await prisma.profile.findMany();
   res.status(200).json(users);
+ 
 };
 
 export { setProfile, getProfile, updateProfile, deleteProfile, getAllUsers };

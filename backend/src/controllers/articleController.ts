@@ -1,17 +1,16 @@
 import type { Request, Response } from "express";
 import { prisma } from "../config/prisma.ts";
 
-// author- article: one to many
 /*
 @desc: set article 
-@route: POST /articles
+@route: POST /articles/
 @access: Private
 */
 const setArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
   const {title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes, publishedDate} = req.body;
   // Validate required fields
-if(! title || !abstract || !fileUrl || !fileType || !articleType || !submitedFor){
+if(! title || !fileUrl || !fileType || !articleType || !submitedFor){
   return res.status(400).json({ message: "Missing required fields" });
 }
 
@@ -30,7 +29,6 @@ if(! title || !abstract || !fileUrl || !fileType || !articleType || !submitedFor
             fileUrl: fileUrl
     }
   }
-
   });
   if(existingArticle){
     return res.status(400).json({message: "An article with the same title already exists, please choose a different title"});
@@ -40,9 +38,9 @@ if(! title || !abstract || !fileUrl || !fileType || !articleType || !submitedFor
     //create a article
     const newArticle = await prisma.article.create({
       data: { title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes,
-         publishedDate: new Date, 
-         author: {  connect: { id: userId } }// Add the required author using "connect:" property
-        }
+        publishedDate: new Date(),
+        author: { connect: { id: userId } }, // Add the required author using "connect:" property
+      },
     });
 
     res.status(201).json(newArticle);
@@ -53,7 +51,7 @@ if(! title || !abstract || !fileUrl || !fileType || !articleType || !submitedFor
 
 /*
 @desc: get all articles authered by current user
-@route: GET /article/userId/articles
+@route: GET /articles/
 @access: Private
 */
 const getArticles = async (req: Request, res: Response) => {
@@ -76,45 +74,48 @@ const getArticles = async (req: Request, res: Response) => {
 }
 
 /*
-@desc: get specific article authered by current user
-@route: GET /article/userId/articles/:id
+@desc: get specific article
+@route: GET /articles/:id
 @access: Private
 */
 const getArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  const {articleId} = req.body;
-  // Validate data
+  const articleId = req.params.id as string;// get specific article id from query parameter
 
   //check if user is valid, 
-  const user = await prisma.user.findUnique({ where: {id:userId}})
+  const user = await prisma.user.findUnique({ where: {id:userId}, include:{profile:true}})
   if(!user){
     return res.status(400).json({message: "User not found"})
   }
-  // check if the article exists and belong to current user
+  // check if the article exists and belong to current user, 
   const article = await prisma.article.findUnique({where:{id:articleId}})
   if(!article){
      return res.status(400).json({message: "Article not found"})
   }
-  
-  if(userId!==article.authorId){
-     return res.status(400).json({message: "Unauthorized, you don't have the permission to update the article"})
+  // restrict access only to author, editor or addmin
+  if(userId !== article.authorId && user.profile?.role !== "EDITOR" && user.profile?.role !== "ADMIN" ){
+     return res.status(400).json({message: "Unauthorized, you don't have the permission to view the article"})
   }
-
     res.status(201).json(article);
- 
 }
 /*
 @desc: Update article
-@route: PUT /article/userId/articles/:id
+@route: PUT /articles/:id
 @access: Private
 */
 const updateArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  const {articleId, title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes, publishedDate} = req.body;
-  //check if user is valid, 
+  const articleId = req.params.id as string;// get specific article id from query parameter
+    const {title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes, publishedDate} = req.body;
+  // Validate required fields
+if(! title || !fileUrl || !fileType || !articleType || !submitedFor){
+  return res.status(400).json({ message: "Missing required fields" });
+}
+
+  //check if user is valid, completed profile and his role is "AUTHOR"
   const user = await prisma.user.findUnique({ where: {id:userId}, include: {profile:true}})
-  if(!user){
-    return res.status(400).json({message: "User not found"})
+  if(!user || !user.profile || user.profile.role !== "AUTHOR"){
+    return res.status(403).json({message: "Unauthorized to submit article, register as user, complete your profile and make sure your role is AUTHOR"});
   }
   // check if the article exists and belong to current user
   const article = await prisma.article.findUnique({where:{id:articleId}})
@@ -122,7 +123,7 @@ const updateArticle = async (req: Request, res: Response) => {
      return res.status(400).json({message: "Article not found"})
   }
   if(userId!==article.authorId){
-     return res.status(400).json({message: "Unauthorized, you don't have the permission to view the article"})
+     return res.status(400).json({message: "Unauthorized, you don't have the permission to update the article"})
   }
   try{
     // Query an Author and their Articles: Use the include option to retrieve the relational data
@@ -143,12 +144,12 @@ const updateArticle = async (req: Request, res: Response) => {
 }
 /*
 @desc: Delete article
-@route: delete /article/userId/articles/:id
+@route: DELETE /articles/:id
 @access: Private
 */
 const deleteArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  const {articleId} = req.body;
+ const articleId = req.params.id as string;// get specific article id from query parameter
   //check if user is valid, 
   const user = await prisma.user.findUnique({ where: {id:userId}, include: {profile:true}})
   if(!user){
@@ -186,9 +187,12 @@ const getAllArticle = async (req: Request, res: Response) => {
   if(!user){
     return res.status(400).json({message: "User not found"})
   }
+  if(user.profile?.role!=="ADMIN"){
+    return res.status(400).json({message: "Unauthorized, you don't have the permission to view articles"})
+  }
   try{
     // fetch all articles
-      const allArticles = await prisma.article.findMany();
+    const allArticles = await prisma.article.findMany();
     res.status(201).json(allArticles);
   } catch (error) {
     res.status(500).json({ message: "error fetching articles" });

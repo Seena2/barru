@@ -1,14 +1,24 @@
 import express from 'express';
-import { assignReviewer } from '../controllers/editorController.ts';
+import {
+  assignReviewer,
+  getReview,
+  removeReviewer,
+  updateReviewer,
+} from "../controllers/editorController.ts";
+import { authMiddleware } from "../middleware/authMiddleware.ts";
 
 // intialize router
-const router= express.Router();
+const router = express.Router();
+// apply authMiddleware to router, so that all routes defined on the router can be authenticated
+router.use(authMiddleware);
 
 //Assign reviewer to article
-router.post('/',assignReviewer)
-//Login user
-// router.post('/login',login)
-// // logout user
-// router.post('/logout',logout)
+router.post("/", assignReviewer);
+//get review
+router.put("/:id", getReview);
+//update reviewer
+router.put("/:id", updateReviewer);
+// remove reviewer
+router.delete("/:id", removeReviewer);
 
 export default router;
