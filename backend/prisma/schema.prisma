@@ -50,6 +50,9 @@ model User{
   name String
   email String @unique
   password String
+  role Role @default(BASIC)
+  isApprovedReveiwer Boolean @default(false)
+  isApprovedEditor Boolean @default(false)
  
   // Relations
   profile Profile? //1-1 relation: user can only have one profile
@@ -82,7 +85,6 @@ model Profile{
    city String
    country String
    isMember Boolean
-   role Role @default(BASIC)
 
   //  Relations
   user User @relation(fields: [userId],references: [id], onDelete:Cascade)
@@ -105,6 +107,7 @@ model Article{
   status SubmissionStatus @default(PENDING)
   notes Json?
   publishedDate DateTime?
+  isFree Boolean @default(false)
  
   // Relations
   authorId String

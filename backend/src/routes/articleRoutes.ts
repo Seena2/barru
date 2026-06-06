@@ -27,7 +27,8 @@ router.post("/", validateRequest(articleSchema), setArticle);
 // router.get("/", (req: Request, res: Response) => {
 //   res.status(200).json({ message: "Get all articles" });
 // });
-router.get("/", getArticles);
+// get all articles authored by current user
+router.get("/all", getArticles);
 // GET: get single article
 router.get("/:id", getArticle);
 //PUT/UPDATE : need to specify the id of the article to update
@@ -41,8 +42,11 @@ router.put("/:id", validateRequest(articleSchema), updateArticle);
 // })
 router.delete("/:id", deleteArticle);
 
-// ADMIN ROUTES
+// ADMIN ROUTES AND EDITORIAL
 //GET : get all articles by all authors
 router.get("/", getAllArticle);
+// PUBLIC ROUTES
+//GET : get all published and free articles by all authors
+router.get("/free", getAllArticle);
 
 export default router;

@@ -6,11 +6,14 @@ const commentSchema=z.object({
     comment:z.string(),
 })
 
-const reviewSchema = z.object({
+const reviewSchemaObject = z.object({
     id: z.string().uuid(),
     reviewerId: z.string().uuid(),
     articleId: z.string().uuid(),
     comments: commentSchema.optional()
 })
 
-export {reviewSchema}
+// 2. Extract the TypeScript type automatically
+   type review = z.infer<typeof reviewSchemaObject>;
+   // Automatically strips the 'id' field for registration inputs
+   export const reviewSchema = reviewSchemaObject.omit({ id: true });

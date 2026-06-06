@@ -8,36 +8,69 @@ import { prisma } from "../config/prisma.ts";
 */
 const setArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  const {title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes, publishedDate} = req.body;
+  const {
+    title,
+    abstract,
+    fileUrl,
+    fileType,
+    articleType,
+    pages,
+    submitedFor,
+    journalType,
+    status,
+    notes,
+    publishedDate,
+  } = req.body;
   // Validate required fields
-if(! title || !fileUrl || !fileType || !articleType || !submitedFor){
-  return res.status(400).json({ message: "Missing required fields" });
-}
+  if (!title || !fileUrl || !fileType || !articleType || !submitedFor) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
 
   //check if user is valid, completed profile and his role is "AUTHOR"
-  const user = await prisma.user.findUnique({ where: {id:userId}, include: {profile:true}})
-  if(!user || !user.profile || user.profile.role !== "AUTHOR"){
-    return res.status(403).json({message: "Unauthorized to submit article, register as user, complete your profile and make sure your role is AUTHOR"});
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { profile: true },
+    omit: { password: true }, // This column will be excluded from the returned object
+  });
+  if (!user || !user.profile) {
+    return res.status(403).json({
+      message:
+        "Unauthorized to submit article, register as AUTHOR and complete your profile before submitting article",
+    });
   }
 
   // check if the user has already submitted an article with the same title
   const existingArticle = await prisma.article.findUnique({
-      where: {
-         title_authorId_fileUrl: { //composite unique field defined in the articles table
-            title: "Your Article Title",
-            authorId: userId,
-            fileUrl: fileUrl
-    }
-  }
+    where: {
+      title_authorId_fileUrl: {
+        //composite unique field defined in the articles table
+        title: "Your Article Title",
+        authorId: userId,
+        fileUrl: fileUrl,
+      },
+    },
   });
-  if(existingArticle){
-    return res.status(400).json({message: "An article with the same title already exists, please choose a different title"});
+  if (existingArticle) {
+    return res.status(400).json({
+      message:
+        "An article with the same title already exists, please choose a different title",
+    });
   }
 
   try {
-    //create a article
+    //create a article in "article" table and link it to user table with author property
     const newArticle = await prisma.article.create({
-      data: { title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes,
+      data: {
+        title,
+        abstract,
+        fileUrl,
+        fileType,
+        articleType,
+        pages,
+        submitedFor,
+        journalType,
+        status,
+        notes,
         publishedDate: new Date(),
         author: { connect: { id: userId } }, // Add the required author using "connect:" property
       },
@@ -56,22 +89,27 @@ if(! title || !fileUrl || !fileType || !articleType || !submitedFor){
 */
 const getArticles = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  //check if user is valid, 
-  const user = await prisma.user.findUnique({ where: {id:userId}})
-  if(!user){
-    return res.status(400).json({message: "User not found"})
+  //check if user is valid,
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    omit: { password: true }, // This column will be excluded from the returned object
+  });
+  if (!user) {
+    return res.status(400).json({ message: "User not found" });
   }
-  try{
+  try {
     // Query an Author and their Articles: Use the include option to retrieve the relational data
-      const articles = await prisma.user.findMany({where: { id: userId },
-        include: { articlesAuthored: true, articlesCoAuthored:true }, // Returns an array of articles
-        
+    const articles = await prisma.user.findMany({
+      where: { id: userId },
+      include: { articlesAuthored: true, articlesCoAuthored: true }, // Returns an array of articles
+      omit: { password: true }, // This column will be excluded from the returned object
     });
+    // const articles = await prisma.article.findMany({ where: { authorId: userId } });
     res.status(201).json(articles);
   } catch (error) {
     res.status(500).json({ message: "error fetching articles" });
   }
-}
+};
 
 /*
 @desc: get specific article
@@ -80,24 +118,35 @@ const getArticles = async (req: Request, res: Response) => {
 */
 const getArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  const articleId = req.params.id as string;// get specific article id from query parameter
+  const articleId = req.params.id as string; // get specific article id from query parameter
 
-  //check if user is valid, 
-  const user = await prisma.user.findUnique({ where: {id:userId}, include:{profile:true}})
-  if(!user){
-    return res.status(400).json({message: "User not found"})
+  //check if user is valid,
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { profile: true },
+    omit: { password: true }, // This column will be excluded from the returned object
+  });
+  if (!user) {
+    return res.status(400).json({ message: "User not found" });
   }
-  // check if the article exists and belong to current user, 
-  const article = await prisma.article.findUnique({where:{id:articleId}})
-  if(!article){
-     return res.status(400).json({message: "Article not found"})
+  // check if the article exists and belong to current user,
+  const article = await prisma.article.findUnique({ where: { id: articleId } });
+  if (!article) {
+    return res.status(400).json({ message: "Article not found" });
   }
   // restrict access only to author, editor or addmin
-  if(userId !== article.authorId && user.profile?.role !== "EDITOR" && user.profile?.role !== "ADMIN" ){
-     return res.status(400).json({message: "Unauthorized, you don't have the permission to view the article"})
+  if (
+    userId !== article.authorId &&
+    user?.role !== "EDITOR" &&
+    user?.role !== "ADMIN"
+  ) {
+    return res.status(400).json({
+      message:
+        "Unauthorized, you don't have the permission to view the article",
+    });
   }
-    res.status(201).json(article);
-}
+  res.status(201).json(article);
+};
 /*
 @desc: Update article
 @route: PUT /articles/:id
@@ -105,35 +154,64 @@ const getArticle = async (req: Request, res: Response) => {
 */
 const updateArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  const articleId = req.params.id as string;// get specific article id from query parameter
-    const {title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes, publishedDate} = req.body;
+  const articleId = req.params.id as string; // get specific article id from query parameter
+  const {
+    title,
+    abstract,
+    fileUrl,
+    fileType,
+    articleType,
+    pages,
+    submitedFor,
+    journalType,
+    status,
+    notes,
+    publishedDate,
+  } = req.body;
   // Validate required fields
-if(! title || !fileUrl || !fileType || !articleType || !submitedFor){
-  return res.status(400).json({ message: "Missing required fields" });
-}
+  if (!title || !fileUrl || !fileType || !articleType || !submitedFor) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
 
   //check if user is valid, completed profile and his role is "AUTHOR"
-  const user = await prisma.user.findUnique({ where: {id:userId}, include: {profile:true}})
-  if(!user || !user.profile || user.profile.role !== "AUTHOR"){
-    return res.status(403).json({message: "Unauthorized to submit article, register as user, complete your profile and make sure your role is AUTHOR"});
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { profile: true },
+    omit: { password: true },
+  });
+  if (!user || !user.profile || userId !== user.profile.userId) {
+    return res.status(404).json({ message: "User not found" });
   }
   // check if the article exists and belong to current user
-  const article = await prisma.article.findUnique({where:{id:articleId}})
-  if(!article){
-     return res.status(400).json({message: "Article not found"})
+  const article = await prisma.article.findUnique({ where: { id: articleId } });
+  if (!article) {
+    return res.status(400).json({ message: "Article not found" });
   }
-  if(userId!==article.authorId){
-     return res.status(400).json({message: "Unauthorized, you don't have the permission to update the article"})
+  if (userId !== article.authorId) {
+    return res.status(400).json({
+      message:
+        "Unauthorized, you don't have the permission to update the article, make sure you logged with same email used when you submited the article and completed your profile",
+    });
   }
-  try{
+  try {
     // Query an Author and their Articles: Use the include option to retrieve the relational data
     // Link an Existing Article to a New or Existing Author, You can use the connect operator to assign an author to an article:
-      const updatedArticle = await prisma.article.update({where: { id: articleId},
-    data: {
-        title, abstract, fileUrl, fileType, articleType, pages, submitedFor, journalType, status, notes,
-        publishedDate: new Date,
+    const updatedArticle = await prisma.article.update({
+      where: { id: articleId },
+      data: {
+        title,
+        abstract,
+        fileUrl,
+        fileType,
+        articleType,
+        pages,
+        submitedFor,
+        journalType,
+        status,
+        notes,
+        publishedDate: new Date(),
         author: {
-          connect: { id: userId }, // Connects existing Author with ID 
+          connect: { id: userId }, // Connects existing Author with ID
         },
       },
     });
@@ -141,7 +219,7 @@ if(! title || !fileUrl || !fileType || !articleType || !submitedFor){
   } catch (error) {
     res.status(500).json({ message: "error updating articles" });
   }
-}
+};
 /*
 @desc: Delete article
 @route: DELETE /articles/:id
@@ -149,55 +227,95 @@ if(! title || !fileUrl || !fileType || !articleType || !submitedFor){
 */
 const deleteArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
- const articleId = req.params.id as string;// get specific article id from query parameter
-  //check if user is valid, 
-  const user = await prisma.user.findUnique({ where: {id:userId}, include: {profile:true}})
-  if(!user){
-    return res.status(400).json({message: "User not found"})
+  const articleId = req.params.id as string; // get specific article id from query parameter
+  //check if user is valid,
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { profile: true },
+    omit: { password: true },
+  });
+  if (!user) {
+    return res.status(400).json({ message: "User not found" });
   }
   // check if the article exists and belong to current user
-  const article = await prisma.article.findUnique({where:{id:articleId}})
-  const title= article?.title;
-  if(!article){
-     return res.status(400).json({message: "Article not found"})
+  const article = await prisma.article.findUnique({ where: { id: articleId } });
+  const title = article?.title;
+  if (!article) {
+    return res.status(400).json({ message: "Article not found" });
   }
-  if(userId!==article.authorId){
-     return res.status(400).json({message: "Unauthorized, you don't have the permission to delete the article"})
-  }
-  try{
-    // Delete article
-      const deleteArticle = await prisma.article.delete({where: { id: articleId},
+  if (userId !== article.authorId) {
+    return res.status(400).json({
+      message:
+        "Unauthorized, you don't have the permission to delete the article",
     });
-    res.status(201).json({message:`deleted atrticle: ${title} successfully`});
+  }
+  try {
+    // Delete article
+    const deleteArticle = await prisma.article.delete({
+      where: { id: articleId },
+    });
+    res
+      .status(201)
+      .json({ message: `deleted atrticle: ${title} successfully` });
   } catch (error) {
     res.status(500).json({ message: "error deleting articles" });
   }
-}
+};
 
 // ADMIN ROUTES
 /*
 @desc: get all article
-@route: GET /article/aritcles
+@route: GET /aritcles
 @access: Private
 */
 const getAllArticle = async (req: Request, res: Response) => {
   const userId = req.user?.id; //get userId from auth middleware( w/c attached  user to request when the user is authenticated)
-  //check if user is valid, 
-  const user = await prisma.user.findUnique({ where: {id:userId}, include: {profile:true}})
-  if(!user){
-    return res.status(400).json({message: "User not found"})
+  //check if user is valid,
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    omit: { password: true },
+  });
+  if (!user) {
+    return res.status(400).json({ message: "User not found" });
   }
-  if(user.profile?.role!=="ADMIN"){
-    return res.status(400).json({message: "Unauthorized, you don't have the permission to view articles"})
+  if (user.role !== "ADMIN") {
+    return res.status(400).json({
+      message: "Unauthorized, you don't have the permission to view articles",
+    });
   }
-  try{
+  try {
     // fetch all articles
     const allArticles = await prisma.article.findMany();
     res.status(201).json(allArticles);
   } catch (error) {
     res.status(500).json({ message: "error fetching articles" });
   }
-}
+};
 
-export {setArticle, getArticles, getArticle, updateArticle, deleteArticle, getAllArticle}
+/*
+@desc: get all article that are publeshed and free to all users
+@route: GET /aritcles
+@access: Public
+*/
+const freeArticles = async (req: Request, res: Response) => {
+  try {
+    const articles = await prisma.article.findMany({
+      where: { status: "PUBLISHED", isFree: true },
+    });
+    res.status(201).json(articles);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error fetching articles, or No articles found" });
+  }
+};
+export {
+  setArticle,
+  getArticles,
+  getArticle,
+  updateArticle,
+  deleteArticle,
+  getAllArticle,
+  freeArticles,
+};
 

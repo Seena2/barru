@@ -59,7 +59,8 @@ app.use("/reviewer", reviewerRoutes);
 // app.use("/admin", adminRoutes);
 
 
-//Listen for request
+//create server instance w/c Listen for request on specific port
+//the server variable is then used to handle conn errors
 const server = app.listen(PORT, () => {
   console.log(`Server running on port: ${PORT}...`);
 });

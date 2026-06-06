@@ -20,7 +20,7 @@ router.use(authMiddleware);
 // router.post('/',authMiddleware,createProfile)  //protecting specific route
 router.post("/", validateRequest(profileSchema), setProfile);
 // Get user profile
-router.get("/:id", validateRequest(profileSchema), getProfile);
+router.get("/:id", getProfile); //no validation applied, hence there is no data expected from user
 // Update user profile
 router.put("/:id", validateRequest(profileSchema), updateProfile);
 // Delete user profile
@@ -31,6 +31,6 @@ router.delete("/:id", deleteProfile);
 
 // ADMIN ROUTES
 // get all users profile
-router.get("/", validateRequest(profileSchema), getAllUsers);
+router.get("/", getAllUsers);
 
 export default router;

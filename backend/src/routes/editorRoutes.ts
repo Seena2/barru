@@ -6,6 +6,8 @@ import {
   updateReviewer,
 } from "../controllers/editorController.ts";
 import { authMiddleware } from "../middleware/authMiddleware.ts";
+import { validateRequest } from "../middleware/validateRequest.ts";
+import { reviewSchema } from "../validators/reviewValidator.ts";
 
 // intialize router
 const router = express.Router();
@@ -13,11 +15,11 @@ const router = express.Router();
 router.use(authMiddleware);
 
 //Assign reviewer to article
-router.post("/", assignReviewer);
+router.post("/", validateRequest(reviewSchema), assignReviewer);
 //get review
-router.put("/:id", getReview);
+router.get("/:id", getReview);
 //update reviewer
-router.put("/:id", updateReviewer);
+router.put("/:id", validateRequest(reviewSchema), updateReviewer);
 // remove reviewer
 router.delete("/:id", removeReviewer);
 
